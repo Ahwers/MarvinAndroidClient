@@ -18,9 +18,16 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+import com.microsoft.cognitiveservices.speech.SpeechConfig;
+import com.microsoft.cognitiveservices.speech.SpeechRecognitionResult;
+import com.microsoft.cognitiveservices.speech.SpeechRecognizer;
+import com.microsoft.cognitiveservices.speech.audio.AudioConfig;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -71,8 +78,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void sendQuickVoiceCommand() {
-        String command = "plot y = x ^ 2 + (3x + 5)/x";
-        commandMarvin(command);
+        SpeechConfig speechConfig = SpeechConfig.fromSubscription("5d2ec79c-437e-485c-842b-3cc721d61fff", "UK South");
+        AudioConfig audioConfig = AudioConfig.fromDefaultMicrophoneInput();
+        SpeechRecognizer recognizer = new SpeechRecognizer(speechConfig, audioConfig);
+
+        System.out.println("Speak into your microphone.");
+        Future<SpeechRecognitionResult> task = recognizer.recognizeOnceAsync();
+        SpeechRecognitionResult result = null;
+        try {
+            result = task.get();
+            Toast.makeText(getApplicationContext(), "RECOGNIZED: Text=" + result.getText(), Toast.LENGTH_SHORT).show();
+        } catch (ExecutionException | InterruptedException e) {
+            Toast.makeText(getApplicationContext(), "Speech Error", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
+
+//        String command = "plot y = x ^ 2 + (3x + 5)/x";
+//        commandMarvin(command);
     }
 
     private void sendWrittenCommand() {
@@ -84,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void commandMarvin(String command) {
-        final String HOST = "https://a45547853824.ngrok.io";
+        final String HOST = "https://f773b7d7e71c.ngrok.io";
 
         RequestQueue queue = Volley.newRequestQueue(this);
         String url = (HOST + "/RestfulMarvin/services/command");
@@ -96,19 +118,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
         JsonObjectRequest request = new JsonObjectRequest(Request.Method.POST, url, requestBody,
-                new Response.Listener<JSONObject>() {
-                    @Override
-                    public void onResponse(JSONObject jsonResponse) {
-                        try {
-                            MarvinResponse response = new MarvinResponse(jsonResponse);
-                            handleResponse(response); // TODO: Should put the json->response logic in a builder class.
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                            Toast.makeText(getApplicationContext(), "ERROR", Toast.LENGTH_SHORT).show();
-                        }
+                successfulJsonResponse -> {
+                    try {
+                        MarvinResponse response = new MarvinResponse(successfulJsonResponse);
+                        handleResponse(response); // TODO: Should put the json->response logic in a builder class.
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                        Toast.makeText(getApplicationContext(), "ERROR", Toast.LENGTH_SHORT).show();
                     }
                 },
-                error -> Toast.makeText(getApplicationContext(), "HTTP Request Error", Toast.LENGTH_SHORT).show()
+                volleyError -> Toast.makeText(getApplicationContext(), ("HTTP Request Error: " + volleyError.getMessage()), Toast.LENGTH_SHORT).show()
         );
         queue.add(request);
     }

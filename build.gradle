@@ -3,6 +3,9 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url "https://csspeechstorage.blob.core.windows.net/maven/"
+        }
     }
     dependencies {
         classpath "com.android.tools.build:gradle:4.2.1"
@@ -16,6 +19,9 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url "https://csspeechstorage.blob.core.windows.net/maven/"
+        }
         jcenter() // Warning: this repository is going to shut down soon
     }
 }
