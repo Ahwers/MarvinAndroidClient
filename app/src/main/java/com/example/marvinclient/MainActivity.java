@@ -1,6 +1,8 @@
 package com.example.marvinclient;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.DialogFragment;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -18,10 +20,14 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+import com.microsoft.cognitiveservices.speech.ResultReason;
 import com.microsoft.cognitiveservices.speech.SpeechConfig;
 import com.microsoft.cognitiveservices.speech.SpeechRecognitionResult;
 import com.microsoft.cognitiveservices.speech.SpeechRecognizer;
 import com.microsoft.cognitiveservices.speech.audio.AudioConfig;
+import com.microsoft.cognitiveservices.speechrecognition.DataRecognitionClient;
+import com.microsoft.cognitiveservices.speechrecognition.SpeechRecognitionMode;
+import com.microsoft.cognitiveservices.speechrecognition.SpeechRecognitionServiceFactory;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -29,84 +35,44 @@ import org.json.JSONObject;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-public class MainActivity extends AppCompatActivity {
+import static android.Manifest.permission.INTERNET;
+import static android.Manifest.permission.RECORD_AUDIO;
+
+public class MainActivity extends AppCompatActivity implements CommandBuilderDialogFragment.CommandBuilderDialogListener {
 
     private Resource activeResource; // TODO: Load a default resource to start with, maybe like a general information one or something. Like what's in my meal plan for today and what evens i have on and that.
 
     private WebView resourceViewer;
-    private EditText writtenCommandEditText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        int requestCode = 5; // unique code for the permission request
+        ActivityCompat.requestPermissions(MainActivity.this, new String[]{RECORD_AUDIO, INTERNET}, requestCode);
+
         resourceViewer = (WebView) findViewById(R.id.resourceViewer);
         resourceViewer.getSettings().setJavaScriptEnabled(true);
         resourceViewer.setWebViewClient(new WebViewClient());
 
-        writtenCommandEditText = (EditText) findViewById(R.id.writtenCommandEditText);
-        writtenCommandEditText.setVisibility(View.GONE);
-        writtenCommandEditText.setOnKeyListener((view, keyCode, event) -> {
-            if (keyCode == KeyEvent.KEYCODE_ENTER) {
-                hideSoftKeyboard();
-                writtenCommandEditText.setVisibility(View.GONE);
-                sendWrittenCommand();
-                writtenCommandEditText.setText("");
-            }
-            return true;
-        });
-
-        Button quickCommandButton = (Button) findViewById(R.id.quickCommandButton);
-        quickCommandButton.setOnClickListener(view -> sendQuickVoiceCommand());
-
-        Button writtenCommandButton = (Button) findViewById(R.id.writtenCommandButton);
-        writtenCommandButton.setOnClickListener(view -> writtenCommandEditText.setVisibility(View.VISIBLE));
-
-        Button sureCommandButton = (Button) findViewById(R.id.sureCommandButton);
-        sureCommandButton.setOnClickListener(view -> sendSureVoiceCommand());
+        Button commandButton = (Button) findViewById(R.id.commandButton);
+        commandButton.setOnClickListener(view -> sendVoiceCommand());
     }
 
-    private void hideSoftKeyboard() {
-        InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Activity.INPUT_METHOD_SERVICE);
-        View view = getCurrentFocus();
-        if (view == null) {
-            view = new View(this);
-        }
-
-        inputMethodManager.hideSoftInputFromWindow(view.getWindowToken(), 0);
+    private void sendVoiceCommand() {
+        CommandBuilderDialogFragment commandBuilderDialogFragment = new CommandBuilderDialogFragment();
+        commandBuilderDialogFragment.show(getSupportFragmentManager(), "commandBuilder");
     }
 
-    private void sendQuickVoiceCommand() {
-        SpeechConfig speechConfig = SpeechConfig.fromSubscription("5d2ec79c-437e-485c-842b-3cc721d61fff", "UK South");
-        AudioConfig audioConfig = AudioConfig.fromDefaultMicrophoneInput();
-        SpeechRecognizer recognizer = new SpeechRecognizer(speechConfig, audioConfig);
-
-        System.out.println("Speak into your microphone.");
-        Future<SpeechRecognitionResult> task = recognizer.recognizeOnceAsync();
-        SpeechRecognitionResult result = null;
-        try {
-            result = task.get();
-            Toast.makeText(getApplicationContext(), "RECOGNIZED: Text=" + result.getText(), Toast.LENGTH_SHORT).show();
-        } catch (ExecutionException | InterruptedException e) {
-            Toast.makeText(getApplicationContext(), "Speech Error", Toast.LENGTH_SHORT).show();
-            e.printStackTrace();
-        }
-
-//        String command = "plot y = x ^ 2 + (3x + 5)/x";
-//        commandMarvin(command);
-    }
-
-    private void sendWrittenCommand() {
-        commandMarvin(writtenCommandEditText.getText().toString());
-    }
-
-    private void sendSureVoiceCommand() {
-        Toast.makeText(getApplicationContext(), "TODO: Implement", Toast.LENGTH_SHORT).show();
+    @Override
+    public void onDialogPositiveClick(String builtCommand) {
+//        commandMarvin(builtCommand);
+        Toast.makeText(getApplicationContext(), "RUNNING: " + builtCommand, Toast.LENGTH_SHORT).show();
     }
 
     private void commandMarvin(String command) {
-        final String HOST = "https://f773b7d7e71c.ngrok.io";
+        final String HOST = "https://1e7a63cb565b.ngrok.io";
 
         RequestQueue queue = Volley.newRequestQueue(this);
         String url = (HOST + "/RestfulMarvin/services/command");
